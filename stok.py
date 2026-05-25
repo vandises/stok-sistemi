@@ -1,16 +1,65 @@
 import streamlit as st
 import pandas as pd
-import os
+import requests
 import datetime
+import base64
+from PIL import Image
+import io
 
 # --- TARAYICI AYARLARI ---
 st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
+
+# Google Apps Script Web App URL'niz
+API_URL = "https://script.google.com/macros/s/AKfycbyAZJ5Z-qDshFqzlcHhnxnCOAuqkDtDA2DEr7OuuGGPhOrfoT_LMY9eMs3RirFaw_iJ/exec"
+
+# --- BULUT VERİ FONKSİYONLARI ---
+def buluttan_veri_cek():
+    try:
+        r = requests.get(API_URL, timeout=10)
+        data = r.json()
+        
+        # Stok tablosunu oluştur
+        stok_rows = data.get("stok", [])
+        if len(stok_rows) > 1:
+            df_stok = pd.DataFrame(stok_rows[1:], columns=stok_rows[0])
+        else:
+            df_stok = pd.DataFrame(columns=["Ürün Adı", "Ürün Kodu", "Adet", "Fotoğraf"])
+            
+        # Sevkiyat tablosunu oluştur
+        sev_rows = data.get("sevkiyat", [])
+        if len(sev_rows) > 1:
+            df_sevkiyat = pd.DataFrame(sev_rows[1:], columns=sev_rows[0])
+        else:
+            df_sevkiyat = pd.DataFrame(columns=["Tarih", "Müşteri İsmi", "Ürün Kodu", "Ürün Adı", "Adet"])
+            
+        # Sayısal alanları temizle
+        df_stok["Adet"] = pd.to_numeric(df_stok["Adet"], errors='coerce').fillna(0).astype(int)
+        df_sevkiyat["Adet"] = pd.to_numeric(df_sevkiyat["Adet"], errors='coerce').fillna(0).astype(int)
+        
+        return df_stok, df_sevkiyat
+    except Exception as e:
+        st.error(f"Bulut veritabanına bağlanılamadı: {e}")
+        return pd.DataFrame(columns=["Ürün Adı", "Ürün Kodu", "Adet", "Fotoğraf"]), pd.DataFrame(columns=["Tarih", "Müşteri İsmi", "Ürün Kodu", "Ürün Adı", "Adet"])
+
+def buluta_veri_gonder(df_stok, df_sevkiyat):
+    try:
+        stok_list = [df_stok.columns.tolist()] + df_stok.values.tolist()
+        sevkiyat_list = [df_sevkiyat.columns.tolist()] + df_sevkiyat.values.tolist()
+        
+        payload = {
+            "stok": stok_list,
+            "sevkiyat": sevkiyat_list
+        }
+        r = requests.post(API_URL, json=payload, timeout=10)
+        return r.json().get("status") == "success"
+    except Exception as e:
+        st.error(f"Veri buluta kaydedilirken hata oluştu: {e}")
+        return False
 
 # --- KULLANICI GİRİŞ SİSTEMİ ---
 if 'giris_yapildi' not in st.session_state:
     st.session_state.giris_yapildi = False
 
-# Eğer giriş yapılmadıysa sadece bu ekranı göster
 if not st.session_state.giris_yapildi:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -23,64 +72,40 @@ if not st.session_state.giris_yapildi:
             giris_butonu = st.form_submit_button("Giriş Yap", type="primary", use_container_width=True)
             
             if giris_butonu:
-                # Şifre ve Kullanıcı Adı Ayarı
                 if kullanici == "admin" and sifre == "1234":
                     st.session_state.giris_yapildi = True
+                    # Giriş yapıldığı an güncel verileri ilk kez çek
+                    st.session_state.stok, st.session_state.sevkiyat = buluttan_veri_cek()
                     st.rerun()
                 else:
                     st.error("❌ Hatalı kullanıcı adı veya şifre!")
 else:
-    # --- GİRİŞ YAPILDIYSA UYGULAMAYI GÖSTER ---
-    
-    # Çıkış Yap Butonu (Sol Menüde)
+    # --- UYGULAMA AÇILDI ---
     st.sidebar.title("Kullanıcı Paneli")
     st.sidebar.success("Hoş geldin, Admin")
+    
+    # El ile yenileme butonu
+    if st.sidebar.button("🔄 Verileri Yenile", use_container_width=True):
+        st.session_state.stok, st.session_state.sevkiyat = buluttan_veri_cek()
+        st.success("Veriler güncellendi!")
+        st.rerun()
+        
     if st.sidebar.button("🚪 Çıkış Yap", type="primary", use_container_width=True):
         st.session_state.giris_yapildi = False
         st.rerun()
 
-    # Dosya Yolları
-    VERI_DOSYASI = "stok_verisi.csv"
-    SEVKIYAT_DOSYASI = "sevkiyat_gecmisi.csv"
-    FOTO_KLASORU = "urun_fotograflari"
-
-    if not os.path.exists(FOTO_KLASORU):
-        os.makedirs(FOTO_KLASORU)
-
-    def stok_yukle():
-        gerekli_sutunlar = ["Ürün Adı", "Ürün Kodu", "Adet", "Fotoğraf"]
-        if os.path.exists(VERI_DOSYASI):
-            try:
-                df = pd.read_csv(VERI_DOSYASI)
-                for sutun in gerekli_sutunlar:
-                    if sutun not in df.columns:
-                        df[sutun] = "" if sutun == "Fotoğraf" else 0
-                return df[gerekli_sutunlar]
-            except:
-                return pd.DataFrame(columns=gerekli_sutunlar)
-        else:
-            return pd.DataFrame(columns=gerekli_sutunlar)
-
-    def sevkiyat_yukle():
-        gerekli_sutunlar = ["Tarih", "Müşteri İsmi", "Ürün Kodu", "Ürün Adı", "Adet"]
-        if os.path.exists(SEVKIYAT_DOSYASI):
-            try:
-                return pd.read_csv(SEVKIYAT_DOSYASI)
-            except:
-                return pd.DataFrame(columns=gerekli_sutunlar)
-        else:
-            return pd.DataFrame(columns=gerekli_sutunlar)
-
-    if 'stok' not in st.session_state:
-        st.session_state.stok = stok_yukle()
-    if 'sevkiyat' not in st.session_state:
-        st.session_state.sevkiyat = sevkiyat_yukle()
+    # Veriler hafızada yoksa buluttan yükle
+    if 'stok' not in st.session_state or 'sevkiyat' not in st.session_state:
+        st.session_state.stok, st.session_state.sevkiyat = buluttan_veri_cek()
 
     st.title("📦 stok sistemi")
     st.markdown("---")
 
     sekme_stok, sekme_sevkiyat = st.tabs(["📦 Stok Yönetimi", "🚚 Sevkiyat Sistemi"])
 
+    # ==========================================
+    # 1. SEKME: STOK YÖNETİMİ
+    # ==========================================
     with sekme_stok:
         st.header("Yeni Ürün Girişi")
         with st.form("urun_ekle_form"):
@@ -102,26 +127,29 @@ else:
                     else:
                         foto_yolu = ""
                         if foto_dosyasi is not None:
-                            uzanti = foto_dosyasi.name.split(".")[-1]
-                            foto_yolu = os.path.join(FOTO_KLASORU, f"{urun_kodu}.{uzanti}")
-                            with open(foto_yolu, "wb") as f:
-                                f.write(foto_dosyasi.getbuffer())
+                            # Fotoğrafı optimize edip base64 metnine dönüştürme (Bulut uyumu için)
+                            image = Image.open(foto_dosyasi)
+                            if image.mode in ("RGBA", "P"):
+                                image = image.convert("RGB")
+                            image.thumbnail((300, 300))
+                            img_byte_arr = io.BytesIO()
+                            image.save(img_byte_arr, format='JPEG', quality=60)
+                            base64_encoded = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
+                            foto_yolu = f"data:image/jpeg;base64,{base64_encoded}"
                         
                         yeni_urun = pd.DataFrame([{
-                            "Ürün Adı": urun_adi, 
-                            "Ürün Kodu": urun_kodu, 
-                            "Adet": adet,
-                            "Fotoğraf": foto_yolu
+                            "Ürün Adı": urun_adi, "Ürün Kodu": urun_kodu, "Adet": adet, "Fotoğraf": foto_yolu
                         }])
-                        st.session_state.stok = pd.concat([st.session_state.stok, yeni_urun], ignore_index=True)
-                        st.session_state.stok.to_csv(VERI_DOSYASI, index=False)
-                        st.success(f"✅ {urun_adi} başarıyla stoka eklendi!")
-                        st.rerun()
+                        
+                        gecici_stok = pd.concat([st.session_state.stok, yeni_urun], ignore_index=True)
+                        if buluta_veri_gonder(gecici_stok, st.session_state.sevkiyat):
+                            st.session_state.stok = gecici_stok
+                            st.success(f"✅ {urun_adi} başarıyla buluta kaydedildi!")
+                            st.rerun()
                 else:
                     st.error("Lütfen Ürün Adı ve Ürün Kodu alanlarını doldurun.")
 
         st.markdown("---")
-
         st.header("Mevcut Stok Durumu")
         if st.session_state.stok.empty:
             st.info("Henüz stokta ürün bulunmuyor.")
@@ -133,7 +161,6 @@ else:
             st.metric(label="Depodaki Toplam Ürün Sayısı", value=toplam_urun)
 
             st.markdown("---")
-            
             st.header("🔍 Ürün Detay İnceleme ve Silme")
             
             secim_listesi = st.session_state.stok.apply(lambda row: f"{row['Ürün Kodu']} - {row['Ürün Adı']}", axis=1).tolist()
@@ -154,28 +181,27 @@ else:
                     sil_butonu = st.button("Bu Ürünü Stoktan Tamamen Sil", type="primary")
                     
                     if sil_butonu:
-                        if pd.notna(satir['Fotoğraf']) and satir['Fotoğraf'] != "" and os.path.exists(str(satir['Fotoğraf'])):
-                            try: os.remove(str(satir['Fotoğraf']))
-                            except: pass
-                        
-                        st.session_state.stok = st.session_state.stok.drop(secilen_indeks).reset_index(drop=True)
-                        st.session_state.stok.to_csv(VERI_DOSYASI, index=False)
-                        st.success("❌ Ürün ve fotoğrafı sistemden kaldırıldı!")
-                        st.rerun()
-                        
+                        gecici_stok = st.session_state.stok.drop(secilen_indeks).reset_index(drop=True)
+                        if buluta_veri_gonder(gecici_stok, st.session_state.sevkiyat):
+                            st.session_state.stok = gecici_stok
+                            st.success("❌ Ürün sistemden kaldırıldı!")
+                            st.rerun()
+                            
                 with col_foto:
                     st.subheader("Ürün Fotoğrafı")
                     foto_p = satir['Fotoğraf']
-                    if pd.notna(foto_p) and foto_p != "" and os.path.exists(str(foto_p)):
+                    if pd.notna(foto_p) and str(foto_p).startswith("data:image"):
                         st.image(str(foto_p), use_container_width=True)
                     else:
                         st.info("Bu ürüne ait fotoğraf yok.")
 
+    # ==========================================
+    # 2. SEKME: SEVKİYAT SİSTEMİ
+    # ==========================================
     with sekme_sevkiyat:
         st.header("Yeni Sevkiyat Yap")
         with st.form("sevkiyat_form"):
             sevkiyat_secim_listesi = st.session_state.stok.apply(lambda row: f"{row['Ürün Kodu']} - {row['Ürün Adı']}", axis=1).tolist()
-            
             secilen_sevkiyat = st.selectbox("Sevkiyat Yapılacak Ürün", sevkiyat_secim_listesi if sevkiyat_secim_listesi else ["Mevcut ürün yok"])
             musteri_ismi = st.text_input("Müşteri İsmi")
             sevkiyat_adedi = st.number_input("Sevkiyat Adedi", min_value=1, step=1)
@@ -193,7 +219,6 @@ else:
                 sec_yil = st.number_input("Yıl", min_value=2020, max_value=2050, value=bugun.year, step=1)
             
             tam_turkce_tarih = f"{sec_gun} {sec_ay} {sec_yil}"
-            
             sevkiyat_butonu = st.form_submit_button("Sevkiyatı Tamamla")
 
             if sevkiyat_butonu:
@@ -204,18 +229,20 @@ else:
                     urun_adi = st.session_state.stok.loc[idx, "Ürün Adı"]
                     
                     if mevcut_adet >= sevkiyat_adedi:
-                        st.session_state.stok.loc[idx, "Adet"] = mevcut_adet - sevkiyat_adedi
-                        st.session_state.stok.to_csv(VERI_DOSYASI, index=False)
+                        gecici_stok = st.session_state.stok.copy()
+                        gecici_stok.loc[idx, "Adet"] = mevcut_adet - sevkiyat_adedi
                         
                         yeni_sevkiyat = pd.DataFrame([{
                             "Tarih": tam_turkce_tarih, "Müşteri İsmi": musteri_ismi, 
                             "Ürün Kodu": islem_kodu, "Ürün Adı": urun_adi, "Adet": sevkiyat_adedi
                         }])
-                        st.session_state.sevkiyat = pd.concat([st.session_state.sevkiyat, yeni_sevkiyat], ignore_index=True)
-                        st.session_state.sevkiyat.to_csv(SEVKIYAT_DOSYASI, index=False)
+                        gecici_sevkiyat = pd.concat([st.session_state.sevkiyat, yeni_sevkiyat], ignore_index=True)
                         
-                        st.success(f"✅ {sevkiyat_adedi} adet '{urun_adi}' sevk edildi.")
-                        st.rerun()
+                        if buluta_veri_gonder(gecici_stok, gecici_sevkiyat):
+                            st.session_state.stok = gecici_stok
+                            st.session_state.sevkiyat = gecici_sevkiyat
+                            st.success(f"✅ {sevkiyat_adedi} adet ürün sevk edildi.")
+                            st.rerun()
                     else:
                         st.error(f"⚠️ Yetersiz stok! Depoda {mevcut_adet} adet var.")
                 else:
@@ -242,14 +269,17 @@ else:
                 sevkiyat_satiri = st.session_state.sevkiyat.iloc[sevkiyat_idx]
                 iptal_kodu, iptal_adedi, iptal_adi = str(sevkiyat_satiri['Ürün Kodu']), int(sevkiyat_satiri['Adet']), sevkiyat_satiri['Ürün Adı']
                 
-                if iptal_kodu in st.session_state.stok["Ürün Kodu"].astype(str).values:
-                    stok_idx = st.session_state.stok[st.session_state.stok["Ürün Kodu"].astype(str) == iptal_kodu].index[0]
-                    st.session_state.stok.loc[stok_idx, "Adet"] += iptal_adedi
+                gecici_stok = st.session_state.stok.copy()
+                if iptal_kodu in gecici_stok["Ürün Kodu"].astype(str).values:
+                    stok_idx = gecici_stok[gecici_stok["Ürün Kodu"].astype(str) == iptal_kodu].index[0]
+                    gecici_stok.loc[stok_idx, "Adet"] += iptal_adedi
                 else:
-                    st.session_state.stok = pd.concat([st.session_state.stok, pd.DataFrame([{"Ürün Adı": iptal_adi, "Ürün Kodu": iptal_kodu, "Adet": iptal_adedi, "Fotoğraf": ""}])], ignore_index=True)
+                    gecici_stok = pd.concat([gecici_stok, pd.DataFrame([{"Ürün Adı": iptal_adi, "Ürün Kodu": iptal_kodu, "Adet": iptal_adedi, "Fotoğraf": ""}])], ignore_index=True)
                 
-                st.session_state.sevkiyat = st.session_state.sevkiyat.drop(sevkiyat_idx).reset_index(drop=True)
-                st.session_state.stok.to_csv(VERI_DOSYASI, index=False)
-                st.session_state.sevkiyat.to_csv(SEVKIYAT_DOSYASI, index=False)
-                st.success(f"🔄 Sevkiyat iptal edildi! {iptal_adedi} adet stoğa geri yüklendi.")
-                st.rerun()
+                gecici_sevkiyat = st.session_state.sevkiyat.drop(sevkiyat_idx).reset_index(drop=True)
+                
+                if buluta_veri_gonder(gecici_stok, gecici_sevkiyat):
+                    st.session_state.stok = gecici_stok
+                    st.session_state.sevkiyat = gecici_sevkiyat
+                    st.success(f"🔄 Sevkiyat iptal edildi! Rakamlar geri yüklendi.")
+                    st.rerun()
