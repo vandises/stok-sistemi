@@ -2,19 +2,30 @@ import streamlit as st
 import pandas as pd
 import requests
 import datetime
-import base64
-from PIL import Image
-import io
 
 # --- TARAYICI AYARLARI ---
 st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
 
-# ⚠️ TELEGRAM BİLGİLERİNİZ EKLENDİ ⚠️
+# ⚠️ TELEGRAM VE IMGBB BİLGİLERİNİZ ⚠️
 TELEGRAM_TOKEN = "8713177330:AAHcYJy2gOTRifpRCql8qftvZy-BdipHx_8"
 TELEGRAM_CHAT_ID = "-1003991121257"
+IMGBB_API_KEY = "2c2815895db4d37d80cce798d6114692"
 
 # Google Apps Script Web App URL'niz
 API_URL = "https://script.google.com/macros/s/AKfycbyAZJ5Z-qDshFqzlcHhnxnCOAuqkDtDA2DEr7OuuGGPhOrfoT_LMY9eMs3RirFaw_iJ/exec"
+
+# --- YÜKSEK KALİTE FOTOĞRAF YÜKLEME FONKSİYONU ---
+def imgbb_yukle(foto_dosyasi):
+    try:
+        url = "https://api.imgbb.com/1/upload"
+        payload = {"key": IMGBB_API_KEY}
+        files = {"image": foto_dosyasi.getvalue()}
+        r = requests.post(url, data=payload, files=files, timeout=15)
+        if r.json().get("success"):
+            return r.json()["data"]["url"]
+        return ""
+    except:
+        return ""
 
 # --- TELEGRAM BİLDİRİM FONKSİYONU ---
 def telegram_bildirim_gonder(mesaj):
@@ -125,7 +136,7 @@ else:
             with col_f1:
                 adet = st.number_input("Adet", min_value=0, step=1)
             with col_f2:
-                foto_dosyasi = st.file_uploader("Ürün Fotoğrafı Seçin", type=["png", "jpg", "jpeg"])
+                foto_dosyasi = st.file_uploader("Ürün Fotoğrafı Seçin (Orijinal Kalite)", type=["png", "jpg", "jpeg"])
             
             kaydet_butonu = st.form_submit_button("Stoka Ekle")
 
@@ -136,14 +147,8 @@ else:
                     else:
                         foto_yolu = ""
                         if foto_dosyasi is not None:
-                            image = Image.open(foto_dosyasi)
-                            if image.mode in ("RGBA", "P"):
-                                image = image.convert("RGB")
-                            image.thumbnail((300, 300))
-                            img_byte_arr = io.BytesIO()
-                            image.save(img_byte_arr, format='JPEG', quality=60)
-                            base64_encoded = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
-                            foto_yolu = f"data:image/jpeg;base64,{base64_encoded}"
+                            with st.spinner("Fotoğraf orijinal kalitede buluta yükleniyor..."):
+                                foto_yolu = imgbb_yukle(foto_dosyasi)
                         
                         yeni_urun = pd.DataFrame([{
                             "Ürün Adı": urun_adi, "Ürün Kodu": urun_kodu, "Adet": adet, "Fotoğraf": foto_yolu
@@ -172,7 +177,7 @@ else:
             st.header("🔍 Ürün Detay İnceleme ve Silme")
             
             secim_listesi = st.session_state.stok.apply(lambda row: f"{row['Ürün Kodu']} - {row['Ürün Adı']}", axis=1).tolist()
-            secilen_urun = st.selectbox("Fotoğrafını görmek veya silmek istediğiniz ürünü seçin:", secim_listesi)
+            secilen_urun = st.selectbox("Detayını görmek veya silmek istediğiniz ürünü seçin:", secim_listesi)
             
             if secilen_urun:
                 secilen_indeks = secim_listesi.index(secilen_urun)
@@ -198,7 +203,7 @@ else:
                 with col_foto:
                     st.subheader("Ürün Fotoğrafı")
                     foto_p = satir['Fotoğraf']
-                    if pd.notna(foto_p) and str(foto_p).startswith("data:image"):
+                    if pd.notna(foto_p) and str(foto_p).startswith("http"):
                         st.image(str(foto_p), use_container_width=True)
                     else:
                         st.info("Bu ürüne ait fotoğraf yok.")
@@ -247,7 +252,6 @@ else:
                             st.session_state.stok = gecici_stok
                             st.session_state.sevkiyat = gecici_sevkiyat
                             
-                            # 🚀 TELEGRAMA ANLIK SEVKİYAT BİLDİRİMİ GÖNDERİR
                             tg_mesaj = f"🚚 *YENİ SEVKİYAT YAPILDI!*\n\n" \
                                        f"📦 *Ürün:* {urun_adi} ({islem_kodu})\n" \
                                        f"👤 *Müşteri:* {musteri_ismi}\n" \
@@ -297,7 +301,6 @@ else:
                     st.session_state.stok = gecici_stok
                     st.session_state.sevkiyat = gecici_sevkiyat
                     
-                    # ❌ TELEGRAMA SEVKİYAT İPTAL BİLDİRİMİ GÖNDERİR
                     tg_iptal_mesaj = f"⚠️ *SEVKİYAT İPTAL EDİLDİ!*\n\n" \
                                      f"📦 *Ürün:* {iptal_adi} ({iptal_kodu})\n" \
                                      f"👤 *Müşteri:* {iptal_musteri}\n" \
