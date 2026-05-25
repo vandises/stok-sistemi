@@ -9,8 +9,26 @@ import io
 # --- TARAYICI AYARLARI ---
 st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
 
+# ⚠️ TELEGRAM BİLGİLERİNİZİ BURAYA YAZIN ⚠️
+TELEGRAM_TOKEN = "BURAYA_BOTFATHERDAN_ALDIĞIN_TOKEN_GELECEK"
+TELEGRAM_CHAT_ID = "-1003991121257" # Bulduğun ID'yi senin için buraya ekledim
+
 # Google Apps Script Web App URL'niz
 API_URL = "https://script.google.com/macros/s/AKfycbyAZJ5Z-qDshFqzlcHhnxnCOAuqkDtDA2DEr7OuuGGPhOrfoT_LMY9eMs3RirFaw_iJ/exec"
+
+# --- TELEGRAM BİLDİRİM FONKSİYONU ---
+def telegram_bildirim_gonder(mesaj):
+    if TELEGRAM_TOKEN != "BURAYA_BOTFATHERDAN_ALDIĞIN_TOKEN_GELECEK" and TELEGRAM_CHAT_ID != "":
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        payload = {
+            "chat_id": TELEGRAM_CHAT_ID,
+            "text": mesaj,
+            "parse_mode": "Markdown"
+        }
+        try:
+            requests.post(url, json=payload, timeout=5)
+        except:
+            pass
 
 # --- BULUT VERİ FONKSİYONLARI ---
 def buluttan_veri_cek():
@@ -18,21 +36,18 @@ def buluttan_veri_cek():
         r = requests.get(API_URL, timeout=10)
         data = r.json()
         
-        # Stok tablosunu oluştur
         stok_rows = data.get("stok", [])
         if len(stok_rows) > 1:
             df_stok = pd.DataFrame(stok_rows[1:], columns=stok_rows[0])
         else:
             df_stok = pd.DataFrame(columns=["Ürün Adı", "Ürün Kodu", "Adet", "Fotoğraf"])
             
-        # Sevkiyat tablosunu oluştur
         sev_rows = data.get("sevkiyat", [])
         if len(sev_rows) > 1:
             df_sevkiyat = pd.DataFrame(sev_rows[1:], columns=sev_rows[0])
         else:
             df_sevkiyat = pd.DataFrame(columns=["Tarih", "Müşteri İsmi", "Ürün Kodu", "Ürün Adı", "Adet"])
             
-        # Sayısal alanları temizle
         df_stok["Adet"] = pd.to_numeric(df_stok["Adet"], errors='coerce').fillna(0).astype(int)
         df_sevkiyat["Adet"] = pd.to_numeric(df_sevkiyat["Adet"], errors='coerce').fillna(0).astype(int)
         
@@ -74,7 +89,6 @@ if not st.session_state.giris_yapildi:
             if giris_butonu:
                 if kullanici == "admin" and sifre == "1234":
                     st.session_state.giris_yapildi = True
-                    # Giriş yapıldığı an güncel verileri ilk kez çek
                     st.session_state.stok, st.session_state.sevkiyat = buluttan_veri_cek()
                     st.rerun()
                 else:
@@ -84,7 +98,6 @@ else:
     st.sidebar.title("Kullanıcı Paneli")
     st.sidebar.success("Hoş geldin, Admin")
     
-    # El ile yenileme butonu
     if st.sidebar.button("🔄 Verileri Yenile", use_container_width=True):
         st.session_state.stok, st.session_state.sevkiyat = buluttan_veri_cek()
         st.success("Veriler güncellendi!")
@@ -94,7 +107,6 @@ else:
         st.session_state.giris_yapildi = False
         st.rerun()
 
-    # Veriler hafızada yoksa buluttan yükle
     if 'stok' not in st.session_state or 'sevkiyat' not in st.session_state:
         st.session_state.stok, st.session_state.sevkiyat = buluttan_veri_cek()
 
@@ -103,9 +115,6 @@ else:
 
     sekme_stok, sekme_sevkiyat = st.tabs(["📦 Stok Yönetimi", "🚚 Sevkiyat Sistemi"])
 
-    # ==========================================
-    # 1. SEKME: STOK YÖNETİMİ
-    # ==========================================
     with sekme_stok:
         st.header("Yeni Ürün Girişi")
         with st.form("urun_ekle_form"):
@@ -127,7 +136,6 @@ else:
                     else:
                         foto_yolu = ""
                         if foto_dosyasi is not None:
-                            # Fotoğrafı optimize edip base64 metnine dönüştürme (Bulut uyumu için)
                             image = Image.open(foto_dosyasi)
                             if image.mode in ("RGBA", "P"):
                                 image = image.convert("RGB")
@@ -195,9 +203,6 @@ else:
                     else:
                         st.info("Bu ürüne ait fotoğraf yok.")
 
-    # ==========================================
-    # 2. SEKME: SEVKİYAT SİSTEMİ
-    # ==========================================
     with sekme_sevkiyat:
         st.header("Yeni Sevkiyat Yap")
         with st.form("sevkiyat_form"):
@@ -241,7 +246,16 @@ else:
                         if buluta_veri_gonder(gecici_stok, gecici_sevkiyat):
                             st.session_state.stok = gecici_stok
                             st.session_state.sevkiyat = gecici_sevkiyat
-                            st.success(f"✅ {sevkiyat_adedi} adet ürün sevk edildi.")
+                            
+                            # 🚀 TELEGRAMA ANLIK SEVKİYAT BİLDİRİMİ GÖNDERİR
+                            tg_mesaj = f"🚚 *YENİ SEVKİYAT YAPILDI!*\n\n" \
+                                       f"📦 *Ürün:* {urun_adi} ({islem_kodu})\n" \
+                                       f"👤 *Müşteri:* {musteri_ismi}\n" \
+                                       f"🔢 *Adet:* {sevkiyat_adedi} Adet\n" \
+                                       f"📅 *Tarih:* {tam_turkce_tarih}"
+                            telegram_bildirim_gonder(tg_mesaj)
+                            
+                            st.success(f"✅ {sevkiyat_adedi} adet ürün sevk edildi ve Telegram grubuna bildirildi.")
                             st.rerun()
                     else:
                         st.error(f"⚠️ Yetersiz stok! Depoda {mevcut_adet} adet var.")
@@ -268,6 +282,7 @@ else:
                 sevkiyat_idx = int(secilen_iptal_str.split(" | ")[0])
                 sevkiyat_satiri = st.session_state.sevkiyat.iloc[sevkiyat_idx]
                 iptal_kodu, iptal_adedi, iptal_adi = str(sevkiyat_satiri['Ürün Kodu']), int(sevkiyat_satiri['Adet']), sevkiyat_satiri['Ürün Adı']
+                iptal_musteri = sevkiyat_satiri['Müşteri İsmi']
                 
                 gecici_stok = st.session_state.stok.copy()
                 if iptal_kodu in gecici_stok["Ürün Kodu"].astype(str).values:
@@ -281,5 +296,14 @@ else:
                 if buluta_veri_gonder(gecici_stok, gecici_sevkiyat):
                     st.session_state.stok = gecici_stok
                     st.session_state.sevkiyat = gecici_sevkiyat
-                    st.success(f"🔄 Sevkiyat iptal edildi! Rakamlar geri yüklendi.")
+                    
+                    # ❌ TELEGRAMA SEVKİYAT İPTAL BİLDİRİMİ GÖNDERİR
+                    tg_iptal_mesaj = f"⚠️ *SEVKİYAT İPTAL EDİLDİ!*\n\n" \
+                                     f"📦 *Ürün:* {iptal_adi} ({iptal_kodu})\n" \
+                                     f"👤 *Müşteri:* {iptal_musteri}\n" \
+                                     f"🔄 *İade Edilen Adet:* {iptal_adedi} Adet\n" \
+                                     f"ℹ️ *Durum:* Stoklar depoya geri eklendi."
+                    telegram_bildirim_gonder(tg_iptal_mesaj)
+                    
+                    st.success(f"🔄 Sevkiyat iptal edildi! Rakamlar Telegram grubuna bildirildi.")
                     st.rerun()
