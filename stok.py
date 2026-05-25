@@ -5,6 +5,7 @@ import datetime
 import base64
 from PIL import Image
 import io
+import os
 
 # --- TARAYICI AYARLARI ---
 st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
@@ -109,7 +110,21 @@ if not st.session_state.giris_yapildi:
                     st.error("❌ Hatalı kullanıcı adı veya şifre!")
         
         # --- İMZA KISMI BURAYA EKLENDİ ---
-        st.markdown("<p style='text-align: center; color: #888888; font-size: 15px; margin-top: 10px; font-weight: 500;'>By Samet SEVİM</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #888888; font-size: 15px; margin-top: 10px; margin-bottom: 0px; font-weight: 500;'>By Samet SEVİM</p>", unsafe_allow_html=True)
+        
+        # İmza fotoğrafını merkeze şık bir şekilde hizalamak için kolonlar
+        col_im1, col_im2, col_im3 = st.columns([1, 1, 1])
+        with col_im2:
+            try:
+                # GitHub'a yüklediğin imza dosyasının uzantısını otomatik bulur
+                if os.path.exists("imza.png"):
+                    st.image("imza.png", use_container_width=True)
+                elif os.path.exists("imza.webp"):
+                    st.image("imza.webp", use_container_width=True)
+                elif os.path.exists("imza.jpg"):
+                    st.image("imza.jpg", use_container_width=True)
+            except:
+                pass
 
 else:
     # --- UYGULAMA AÇILDI ---
@@ -143,7 +158,7 @@ else:
             with col_f1:
                 adet = st.number_input("Adet", min_value=0, step=1)
             with col_f2:
-                foto_dosyasi = st.file_uploader("Ürün Fotoğrafı Seçin (Orijinal Kalite)", type=["png", "jpg", "jpeg"])
+                foto_dosyasi = st.file_uploader("Ürün Fotoğrafı Seçin (Orijinal Kalite)", type=["png", "jpg", "jpeg", "webp"])
             
             kaydet_butonu = st.form_submit_button("Stoka Ekle")
 
