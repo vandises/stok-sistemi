@@ -9,16 +9,16 @@ import io
 # --- TARAYICI AYARLARI ---
 st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
 
-# ⚠️ TELEGRAM BİLGİLERİNİZİ BURAYA YAZIN ⚠️
-TELEGRAM_TOKEN = "BURAYA_BOTFATHERDAN_ALDIĞIN_TOKEN_GELECEK"
-TELEGRAM_CHAT_ID = "-1003991121257" # Bulduğun ID'yi senin için buraya ekledim
+# ⚠️ TELEGRAM BİLGİLERİNİZ EKLENDİ ⚠️
+TELEGRAM_TOKEN = "8713177330:AAHcYJy2gOTRifpRCql8qftvZy-BdipHx_8"
+TELEGRAM_CHAT_ID = "-1003991121257"
 
 # Google Apps Script Web App URL'niz
 API_URL = "https://script.google.com/macros/s/AKfycbyAZJ5Z-qDshFqzlcHhnxnCOAuqkDtDA2DEr7OuuGGPhOrfoT_LMY9eMs3RirFaw_iJ/exec"
 
 # --- TELEGRAM BİLDİRİM FONKSİYONU ---
 def telegram_bildirim_gonder(mesaj):
-    if TELEGRAM_TOKEN != "BURAYA_BOTFATHERDAN_ALDIĞIN_TOKEN_GELECEK" and TELEGRAM_CHAT_ID != "":
+    if TELEGRAM_TOKEN != "" and TELEGRAM_CHAT_ID != "":
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         payload = {
             "chat_id": TELEGRAM_CHAT_ID,
