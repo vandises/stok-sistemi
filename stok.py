@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import requests
 import datetime
+import base64
+from PIL import Image
+import io
 
 # --- TARAYICI AYARLARI ---
 st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
@@ -104,6 +107,10 @@ if not st.session_state.giris_yapildi:
                     st.rerun()
                 else:
                     st.error("❌ Hatalı kullanıcı adı veya şifre!")
+        
+        # --- İMZA KISMI BURAYA EKLENDİ ---
+        st.markdown("<p style='text-align: center; color: #888888; font-size: 15px; margin-top: 10px; font-weight: 500;'>By Samet SEVİM</p>", unsafe_allow_html=True)
+
 else:
     # --- UYGULAMA AÇILDI ---
     st.sidebar.title("Kullanıcı Paneli")
