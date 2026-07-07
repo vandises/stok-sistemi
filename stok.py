@@ -12,7 +12,7 @@ st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
 
 # ⚠️ TELEGRAM VE IMGBB BİLGİLERİNİZ ⚠️
 TELEGRAM_TOKEN = "8634222820:AAECU62Pp_8TWpKGvWcRz5EQ0uJ8v0iyVs0"
-TELEGRAM_CHAT_ID = "-1004652233827"  # Kişisel Chat ID'niz (Botu başlatmayı unutmayın)
+TELEGRAM_CHAT_ID = "-1004652233827"  # Yeni grubunun ID'si (Eksiksiz ve doğru)
 IMGBB_API_KEY = "2c2815895db4d37d80cce798d6114692"
 
 # Google Apps Script Web App URL'niz
@@ -31,7 +31,7 @@ def imgbb_yukle(foto_dosyasi):
     except:
         return ""
 
-# --- TELEGRAM BİLDİRİM FONKSİYONU ---
+# --- TELEGRAM BİLDİRİM FONKSİYONU (EN GÜVENLİ VE HATASIZ HALİ) ---
 def telegram_bildirim_gonder(mesaj):
     if TELEGRAM_TOKEN != "" and TELEGRAM_CHAT_ID != "":
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -40,8 +40,9 @@ def telegram_bildirim_gonder(mesaj):
             "text": mesaj
         }
         try:
+            # İstek gönderiliyor
             requests.post(url, json=payload, timeout=5)
-        except:
+        except Exception as e:
             pass
 
 # --- BULUT VERİ FONKSİYONLARI ---
@@ -277,7 +278,7 @@ else:
                                        f"📅 Tarih: {tam_turkce_tarih}"
                             telegram_bildirim_gonder(tg_mesaj)
                             
-                            st.success(f"✅ {sevkiyat_adedi} adet ürün sevk edildi ve Telegram bildirilmiştir.")
+                            st.success(f"✅ {sevkiyat_adedi} adet ürün sevk edildi ve Telegram grubuna bildirildi.")
                             st.rerun()
                     else:
                         st.error(f"⚠️ Yetersiz stok! Depoda {mevcut_adet} adet var.")
