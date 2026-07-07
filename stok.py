@@ -12,7 +12,7 @@ st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
 
 # ⚠️ TELEGRAM VE IMGBB BİLGİLERİNİZ ⚠️
 TELEGRAM_TOKEN = "8713177330:AAHcYJy2gOTRifpRCql8qftvZy-BdipHx_8"
-TELEGRAM_CHAT_ID = "-1003991121257"
+TELEGRAM_CHAT_ID = "8948917739"  # Botun mesaj atacağı yeni ID (Grup ID'sini bulunca -100... şeklinde değiştirebilirsin)
 IMGBB_API_KEY = "2c2815895db4d37d80cce798d6114692"
 
 # Google Apps Script Web App URL'niz
@@ -37,8 +37,7 @@ def telegram_bildirim_gonder(mesaj):
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         payload = {
             "chat_id": TELEGRAM_CHAT_ID,
-            "text": mesaj,
-            "parse_mode": "Markdown"
+            "text": mesaj
         }
         try:
             requests.post(url, json=payload, timeout=5)
@@ -109,14 +108,11 @@ if not st.session_state.giris_yapildi:
                 else:
                     st.error("❌ Hatalı kullanıcı adı veya şifre!")
         
-        # --- İMZA KISMI BURAYA EKLENDİ ---
         st.markdown("<p style='text-align: center; color: #888888; font-size: 15px; margin-top: 10px; margin-bottom: 0px; font-weight: 500;'>By Samet SEVİM</p>", unsafe_allow_html=True)
         
-        # İmza fotoğrafını merkeze şık bir şekilde hizalamak için kolonlar
         col_im1, col_im2, col_im3 = st.columns([1, 1, 1])
         with col_im2:
             try:
-                # GitHub'a yüklediğin imza dosyasının uzantısını otomatik bulur
                 if os.path.exists("imza.png"):
                     st.image("imza.png", use_container_width=True)
                 elif os.path.exists("imza.webp"):
@@ -274,14 +270,14 @@ else:
                             st.session_state.stok = gecici_stok
                             st.session_state.sevkiyat = gecici_sevkiyat
                             
-                            tg_mesaj = f"🚚 *YENİ SEVKİYAT YAPILDI!*\n\n" \
-                                       f"📦 *Ürün:* {urun_adi} ({islem_kodu})\n" \
-                                       f"👤 *Müşteri:* {musteri_ismi}\n" \
-                                       f"🔢 *Adet:* {sevkiyat_adedi} Adet\n" \
-                                       f"📅 *Tarih:* {tam_turkce_tarih}"
+                            tg_mesaj = f"🚚 YENİ SEVKİYAT YAPILDI!\n\n" \
+                                       f"📦 Ürün: {urun_adi} ({islem_kodu})\n" \
+                                       f"👤 Müşteri: {musteri_ismi}\n" \
+                                       f"🔢 Adet: {sevkiyat_adedi} Adet\n" \
+                                       f"📅 Tarih: {tam_turkce_tarih}"
                             telegram_bildirim_gonder(tg_mesaj)
                             
-                            st.success(f"✅ {sevkiyat_adedi} adet ürün sevk edildi ve Telegram grubuna bildirildi.")
+                            st.success(f"✅ {sevkiyat_adedi} adet ürün sevk edildi ve Telegram bildirilmiştir.")
                             st.rerun()
                     else:
                         st.error(f"⚠️ Yetersiz stok! Depoda {mevcut_adet} adet var.")
@@ -323,11 +319,11 @@ else:
                     st.session_state.stok = gecici_stok
                     st.session_state.sevkiyat = gecici_sevkiyat
                     
-                    tg_iptal_mesaj = f"⚠️ *SEVKİYAT İPTAL EDİLDİ!*\n\n" \
-                                     f"📦 *Ürün:* {iptal_adi} ({iptal_kodu})\n" \
-                                     f"👤 *Müşteri:* {iptal_musteri}\n" \
-                                     f"🔄 *İade Edilen Adet:* {iptal_adedi} Adet\n" \
-                                     f"ℹ️ *Durum:* Stoklar depoya geri eklendi."
+                    tg_iptal_mesaj = f"⚠️ SEVKİYAT İPTAL EDİLDİ!\n\n" \
+                                     f"📦 Ürün: {iptal_adi} ({iptal_kodu})\n" \
+                                     f"👤 Müşteri: {iptal_musteri}\n" \
+                                     f"🔄 İade Edilen Adet: {iptal_adedi} Adet\n" \
+                                     f"ℹ️ Durum: Stoklar depoya geri eklendi."
                     telegram_bildirim_gonder(tg_iptal_mesaj)
                     
                     st.success(f"🔄 Sevkiyat iptal edildi! Rakamlar Telegram grubuna bildirildi.")
