@@ -12,7 +12,7 @@ st.set_page_config(page_title="stok sistemi", page_icon="📦", layout="wide")
 
 # ⚠️ TELEGRAM VE IMGBB BİLGİLERİNİZ ⚠️
 TELEGRAM_TOKEN = "8634222820:AAECU62Pp_8TWpKGvWcRz5EQ0uJ8v0iyVs0"
-TELEGRAM_CHAT_ID = "8948917739"  # Kişisel Chat ID'niz (Botu başlatmayı unutmayın)
+TELEGRAM_CHAT_ID = "-1004652233827"  # Kişisel Chat ID'niz (Botu başlatmayı unutmayın)
 IMGBB_API_KEY = "2c2815895db4d37d80cce798d6114692"
 
 # Google Apps Script Web App URL'niz
